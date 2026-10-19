@@ -1,0 +1,6 @@
+# Trae 内部产物，不进仓库
+.trae-html-share-packages/
+# 临时文件与截图
+_*.mjs
+_*.txt
+_*.png

@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+<link rel="icon" href="data:," />
+<title>塔</title>
+<style>
+  :root {
+    --ink: #eef2f8;
+    --ink-dim: #a9b6c9;
+    --line: rgba(255, 255, 255, 0.1);
+    --panel: rgba(14, 19, 28, 0.62);
+    --ok: #53d769;
+    --warn: #ffc83d;
+    --bad: #ff5a5a;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; height: 100%; overflow: hidden; background: #0f1622; color: var(--ink);
+    font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei UI", "Microsoft YaHei", "Segoe UI", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  #stage { position: fixed; inset: 0; }
+  canvas { display: block; cursor: crosshair; }
+
+  .panel {
+    position: fixed; background: var(--panel); backdrop-filter: blur(9px);
+    border: 1px solid var(--line); border-radius: 12px; padding: 13px 15px;
+  }
+  /* 左：读数 */
+  #reads { left: 18px; top: 18px; min-width: 176px; }
+  #reads .row { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+  #reads .hl { font-size: 34px; font-weight: 600; letter-spacing: -0.5px; line-height: 1.05; }
+  #reads .hl small { font-size: 12px; font-weight: 400; color: var(--ink-dim); margin-left: 4px; }
+  #reads .kv { display: flex; justify-content: space-between; font-size: 12.5px; color: var(--ink-dim); padding: 3px 0; }
+  #reads .kv b { color: var(--ink); font-weight: 500; }
+  #reads .sep { height: 1px; background: var(--line); margin: 7px 0; }
+  #h-state { display: inline-flex; align-items: center; gap: 6px; color: var(--ink); }
+  #h-dot { width: 8px; height: 8px; border-radius: 50%; background: #7f8ea8; box-shadow: 0 0 9px currentColor; }
+
+  /* 右：操作 */
+  #keys { right: 18px; top: 18px; width: 218px; font-size: 12.5px; line-height: 1.75; color: var(--ink-dim); }
+  #keys h2 { margin: 0 0 8px; font-size: 12px; letter-spacing: 2px; color: var(--ink-dim); font-weight: 500; }
+  #keys .k { color: var(--ink); font-weight: 500; }
+  #keys .hint { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--line); }
+  #h-mute {
+    margin-top: 9px; width: 100%; padding: 6px 0; border-radius: 8px; cursor: pointer;
+    background: rgba(255, 255, 255, 0.07); border: 1px solid var(--line); color: var(--ink);
+    font-family: inherit; font-size: 12.5px;
+  }
+  #h-mute:hover { background: rgba(255, 255, 255, 0.14); }
+
+  /* 中下：提示 */
+  #h-tip {
+    position: fixed; left: 50%; bottom: 30px; transform: translateX(-50%);
+    font-size: 14px; color: var(--ink); padding: 9px 16px; border-radius: 999px;
+    background: rgba(14, 19, 28, 0.6); border: 1px solid var(--line); backdrop-filter: blur(9px);
+    white-space: nowrap;
+  }
+  #h-tip:empty { display: none; }
+
+  /* 开场 */
+  #intro {
+    position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
+    background: radial-gradient(120% 90% at 50% 15%, rgba(28, 38, 56, 0.82), rgba(9, 13, 20, 0.95));
+    backdrop-filter: blur(3px); cursor: pointer; transition: opacity .5s ease, visibility .5s;
+  }
+  #intro.gone { opacity: 0; visibility: hidden; }
+  #intro .box { text-align: center; max-width: 560px; padding: 0 26px; }
+  #intro .title { font-size: 74px; font-weight: 600; letter-spacing: 14px; margin: 0 0 6px; text-indent: 14px; }
+  #intro .sub { font-size: 14px; color: var(--ink-dim); letter-spacing: 1px; margin-bottom: 26px; }
+  #intro ol { text-align: left; margin: 0 auto 26px; padding-left: 20px; color: var(--ink-dim); font-size: 13.5px; line-height: 2; max-width: 420px; }
+  #intro ol b { color: var(--ink); font-weight: 500; }
+  #intro .bar { display: inline-block; font-size: 13px; color: var(--ink); border: 1px solid var(--line); border-radius: 999px; padding: 10px 26px; letter-spacing: 2px; }
+  #intro .ready { animation: pulse 1.9s ease-in-out infinite; }
+  @keyframes pulse { 0%, 100% { opacity: .68; } 50% { opacity: 1; } }
+</style>
+</head>
+<body>
+<div id="stage"></div>
+
+<div class="panel" id="reads">
+  <div class="row"><span class="hl"><span id="h-height">0.00</span><small>高度</small></span></div>
+  <div class="sep"></div>
+  <div class="kv"><span>砖</span><b id="h-count">0</b></div>
+  <div class="kv"><span>掉出台面</span><b id="h-fall">0</b></div>
+  <div class="kv"><span>状态</span><b id="h-state"><span id="h-dot"></span>待命</b></div>
+  <div class="kv"><span>最高记录</span><b id="h-best">0.00</b></div>
+</div>
+
+<div class="panel" id="keys">
+  <h2>操作</h2>
+  <div><span class="k">移动鼠标</span>　瞄准落点</div>
+  <div><span class="k">按住左键</span>　缓缓放下</div>
+  <div><span class="k">松开左键</span>　松手</div>
+  <div><span class="k">滚轮</span>　悬停高度 <b id="h-hover">1.60</b></div>
+  <div><span class="k">Q / E</span>　转向 <b id="h-yaw">0°</b></div>
+  <div><span class="k">空格</span>　一巴掌推倒</div>
+  <div><span class="k">W / S</span>　扫击高度 <b id="h-slap">0.00</b></div>
+  <div><span class="k">右键拖动</span>　转视角</div>
+  <div><span class="k">R</span>　重来</div>
+  <div class="hint">地面上的绿框是落点预判：<span style="color:var(--ok)">绿</span> 稳 / <span style="color:var(--warn)">黄</span> 险 / <span style="color:var(--bad)">红</span> 必塌。那一圈细灰环是空格扫击的高度。</div>
+  <button id="h-mute">声音开</button>
+</div>
+
+<div id="h-tip"></div>
+
+<div id="intro">
+  <div class="box">
+    <h1 class="title">塔</h1>
+    <div class="sub">随便堆，堆多高都行。堆好了，一巴掌推倒。</div>
+    <ol>
+      <li>鼠标移动是<b>瞄准</b>，地上那圈绿框告诉你落在哪。</li>
+      <li>按住左键<b>缓缓放下</b>，手一抖砖就歪，越高的塔越经不起抖。</li>
+      <li>塔沉睡了再垒下一块。睡眠就是稳定，睡眠被撞醒就得重新等。</li>
+      <li>想收工，按<b>空格</b>从塔身中间扫过去，W / S 可以挪扫击高度。</li>
+    </ol>
+    <div class="bar ready">点击任意位置开始</div>
+  </div>
+</div>
+
+<!-- LIB_BOOT -->
+<script type="importmap">
+{ "imports": { "three": "./libs/three.module.js", "rapier": "./libs/rapier.es.js" } }
+</script>
+<script type="module" src="./src/game.js"></script>
+<!-- /LIB_BOOT -->
+</body>
+</html>
