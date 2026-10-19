@@ -1,5 +1,7 @@
 # 塔
 
+![build-and-deploy](https://github.com/lllllf-hhhhhq/ta-tower/actions/workflows/pages.yml/badge.svg)
+
 随便堆，堆多高都行。堆好了，一巴掌推倒。
 
 线上站点：https://lllllf-hhhhhq.github.io/ta-tower/
