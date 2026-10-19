@@ -1,0 +1,53 @@
+name: build-and-deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: 取渲染与物理库
+        run: |
+          npm i --no-save --no-audit --no-fund three@0.160.0 @dimforge/rapier3d-compat@0.14.0
+          mkdir -p libs
+          cp node_modules/three/build/three.module.js libs/three.module.js
+          cp node_modules/@dimforge/rapier3d-compat/rapier.es.js libs/rapier.es.js
+      - name: 打包成单文件
+        run: node build.mjs
+      - name: 组装站点
+        run: |
+          mkdir -p _site
+          cp index.html _site/index.html
+          cp README.md _site/README.md
+      - uses: actions/configure-pages@v5
+        with:
+          enablement: true
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.dep.outputs.page_url }}
+    steps:
+      - id: dep
+        uses: actions/deploy-pages@v4
